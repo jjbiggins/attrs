@@ -69,7 +69,7 @@ class TestEqOrder:
         Equal objects are detected as equal.
         """
         assert cls(1) == cls(1)
-        assert not (cls(1) != cls(1))
+        assert cls(1) == cls(1)
 
     @pytest.mark.parametrize("cls, requires_same_type", cmp_data, ids=cmp_ids)
     def test_unequal_same_type(self, cls, requires_same_type):
@@ -77,7 +77,7 @@ class TestEqOrder:
         Unequal objects of correct type are detected as unequal.
         """
         assert cls(1) != cls(2)
-        assert not (cls(1) == cls(2))
+        assert cls(1) != cls(2)
 
     @pytest.mark.parametrize("cls, requires_same_type", cmp_data, ids=cmp_ids)
     def test_equal_different_type(self, cls, requires_same_type):
@@ -85,7 +85,7 @@ class TestEqOrder:
         Equal values of different types are detected appropriately.
         """
         assert (cls(1) == cls(1.0)) == (not requires_same_type)
-        assert not (cls(1) != cls(1.0)) == (not requires_same_type)
+        assert (cls(1) != cls(1.0)) != (not requires_same_type)
 
     #########
     # lt

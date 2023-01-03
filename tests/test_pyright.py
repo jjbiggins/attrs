@@ -46,7 +46,7 @@ def test_pyright_baseline():
     decorated class types.
     """
 
-    test_file = os.path.dirname(__file__) + "/dataclass_transform_example.py"
+    test_file = f"{os.path.dirname(__file__)}/dataclass_transform_example.py"
 
     diagnostics = parse_pyright_output(test_file)
 

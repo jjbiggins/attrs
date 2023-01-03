@@ -21,8 +21,8 @@ class TestMetadataProxy:
         """
         assert any(
             [
-                "mappingproxy({'x': 42, 'y': 'foo'})" == repr(mp),
-                "mappingproxy({'y': 'foo', 'x': 42})" == repr(mp),
+                repr(mp) == "mappingproxy({'x': 42, 'y': 'foo'})",
+                repr(mp) == "mappingproxy({'y': 'foo', 'x': 42})",
             ]
         )
 

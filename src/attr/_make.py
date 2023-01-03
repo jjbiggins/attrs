@@ -315,9 +315,8 @@ def _make_method(name, script, filename, globs):
         old_val = linecache.cache.setdefault(filename, linecache_tuple)
         if old_val == linecache_tuple:
             break
-        else:
-            filename = f"{base_filename[:-1]}-{count}>"
-            count += 1
+        filename = f"{base_filename[:-1]}-{count}>"
+        count += 1
 
     _compile_and_eval(script, globs, locs, filename)
 
@@ -340,10 +339,10 @@ def _make_attr_tuple_class(cls_name, attr_names):
         "    __slots__ = ()",
     ]
     if attr_names:
-        for i, attr_name in enumerate(attr_names):
-            attr_class_template.append(
-                f"    {attr_name} = _attrs_property(_attrs_itemgetter({i}))"
-            )
+        attr_class_template.extend(
+            f"    {attr_name} = _attrs_property(_attrs_itemgetter({i}))"
+            for i, attr_name in enumerate(attr_names)
+        )
     else:
         attr_class_template.append("    pass")
     globs = {"_attrs_itemgetter": itemgetter, "_attrs_property": property}
@@ -485,7 +484,7 @@ def _transform_attrs(
     anns = _get_annotations(cls)
 
     if these is not None:
-        ca_list = [(name, ca) for name, ca in these.items()]
+        ca_list = list(these.items())
     elif auto_attribs is True:
         ca_names = {
             name
@@ -501,10 +500,7 @@ def _transform_attrs(
             a = cd.get(attr_name, NOTHING)
 
             if not isinstance(a, _CountingAttr):
-                if a is NOTHING:
-                    a = attrib()
-                else:
-                    a = attrib(default=a)
+                a = attrib() if a is NOTHING else attrib(default=a)
             ca_list.append((attr_name, a))
 
         unannotated = ca_names - annot_names
@@ -570,7 +566,7 @@ def _transform_attrs(
     # This allows field_transformer to differentiate between explicit vs
     # default aliases and supply their own defaults.
     attrs = [
-        a.evolve(alias=_default_init_alias_for(a.name)) if not a.alias else a
+        a if a.alias else a.evolve(alias=_default_init_alias_for(a.name))
         for a in attrs
     ]
 
@@ -674,8 +670,8 @@ class _ClassBuilder:
         self._frozen = frozen
         self._weakref_slot = weakref_slot
         self._cache_hash = cache_hash
-        self._has_pre_init = bool(getattr(cls, "__attrs_pre_init__", False))
-        self._has_post_init = bool(getattr(cls, "__attrs_post_init__", False))
+        self._has_pre_init = getattr(cls, "__attrs_pre_init__", False)
+        self._has_post_init = getattr(cls, "__attrs_post_init__", False)
         self._delete_attribs = not bool(these)
         self._is_exc = is_exc
         self._on_setattr = on_setattr
@@ -705,10 +701,9 @@ class _ClassBuilder:
                 if has_validator and has_converter:
                     break
             if (
-                (
-                    on_setattr == _ng_default_on_setattr
-                    and not (has_validator or has_converter)
-                )
+                on_setattr == _ng_default_on_setattr
+                and not has_validator
+                and not has_converter
                 or (on_setattr == setters.validate and not has_validator)
                 or (on_setattr == setters.convert and not has_converter)
             ):
@@ -760,10 +755,10 @@ class _ClassBuilder:
         Apply accumulated methods and return the class.
         """
         cls = self._cls
-        base_names = self._base_names
-
         # Clean class of attribute definitions (`attr.ib()`s).
         if self._delete_attribs:
+            base_names = self._base_names
+
             for name in self._attr_names:
                 if (
                     name not in base_names
@@ -822,17 +817,15 @@ class _ClassBuilder:
 
         # Traverse the MRO to collect existing slots
         # and check for an existing __weakref__.
-        existing_slots = dict()
+        existing_slots = {}
         weakref_inherited = False
         for base_cls in self._cls.__mro__[1:-1]:
             if base_cls.__dict__.get("__weakref__", None) is not None:
                 weakref_inherited = True
-            existing_slots.update(
-                {
-                    name: getattr(base_cls, name)
-                    for name in getattr(base_cls, "__slots__", [])
-                }
-            )
+            existing_slots |= {
+                name: getattr(base_cls, name)
+                for name in getattr(base_cls, "__slots__", [])
+            }
 
         base_names = set(self._base_names)
 
@@ -858,7 +851,7 @@ class _ClassBuilder:
             if slot in slot_names
         }
         slot_names = [name for name in slot_names if name not in reused_slots]
-        cd.update(reused_slots)
+        cd |= reused_slots
         if self._cache_hash:
             slot_names.append(_hash_cache_field)
         cd["__slots__"] = tuple(slot_names)
@@ -1589,10 +1582,7 @@ def attrs(
 
     # maybe_cls's type depends on the usage of the decorator.  It's a class
     # if it's used as `@attrs` but ``None`` if used as `@attrs()`.
-    if maybe_cls is None:
-        return wrap
-    else:
-        return wrap(maybe_cls)
+    return wrap if maybe_cls is None else wrap(maybe_cls)
 
 
 _attrs = attrs
@@ -1644,7 +1634,7 @@ def _make_hash(cls, attrs, frozen, cache_hash):
             ", _cache_wrapper="
             + "__import__('attr._make')._make._CacheHashWrapper):"
         )
-        hash_func = "_cache_wrapper(" + hash_func
+        hash_func = f"_cache_wrapper({hash_func}"
         closing_braces += ")"
 
     method_lines = [hash_def]
@@ -1657,26 +1647,21 @@ def _make_hash(cls, attrs, frozen, cache_hash):
         """
 
         method_lines.extend(
-            [
-                indent + prefix + hash_func,
-                indent + f"        {type_hash},",
-            ]
+            [indent + prefix + hash_func, f"{indent}        {type_hash},"]
         )
 
         for a in attrs:
             if a.eq_key:
                 cmp_name = f"_{a.name}_key"
                 globs[cmp_name] = a.eq_key
-                method_lines.append(
-                    indent + f"        {cmp_name}(self.{a.name}),"
-                )
+                method_lines.append(f"{indent}        {cmp_name}(self.{a.name}),")
             else:
-                method_lines.append(indent + f"        self.{a.name},")
+                method_lines.append(f"{indent}        self.{a.name},")
 
-        method_lines.append(indent + "    " + closing_braces)
+        method_lines.append(f"{indent}    {closing_braces}")
 
     if cache_hash:
-        method_lines.append(tab + f"if self.{_hash_cache_field} is None:")
+        method_lines.append(f"{tab}if self.{_hash_cache_field} is None:")
         if frozen:
             append_hash_computation_lines(
                 f"object.__setattr__(self, '{_hash_cache_field}', ", tab * 2
@@ -1686,7 +1671,7 @@ def _make_hash(cls, attrs, frozen, cache_hash):
             append_hash_computation_lines(
                 f"self.{_hash_cache_field} = ", tab * 2
             )
-        method_lines.append(tab + f"return self.{_hash_cache_field}")
+        method_lines.append(f"{tab}return self.{_hash_cache_field}")
     else:
         append_hash_computation_lines("return ", tab)
 
@@ -1713,10 +1698,7 @@ def _make_ne():
         return the result negated.
         """
         result = self.__eq__(other)
-        if result is NotImplemented:
-            return NotImplemented
-
-        return not result
+        return NotImplemented if result is NotImplemented else not result
 
     return __ne__
 
@@ -1841,16 +1823,14 @@ def _make_repr(attrs, ns, cls):
         if a.repr is not False
     )
     globs = {
-        name + "_repr": r for name, r, _ in attr_names_with_reprs if r != repr
+        f"{name}_repr": r for name, r, _ in attr_names_with_reprs if r != repr
     }
     globs["_compat"] = _compat
     globs["AttributeError"] = AttributeError
     globs["NOTHING"] = NOTHING
     attribute_fragments = []
     for name, r, i in attr_names_with_reprs:
-        accessor = (
-            "self." + name if i else 'getattr(self, "' + name + '", NOTHING)'
-        )
+        accessor = f"self.{name}" if i else f'getattr(self, "{name}", NOTHING)'
         fragment = (
             "%s={%s!r}" % (name, accessor)
             if r == repr
@@ -2062,11 +2042,7 @@ def _setattr_with_converter(attr_name, value_var, has_on_setattr):
     Use the cached object.setattr to set *attr_name* to *value_var*, but run
     its converter first.
     """
-    return "_setattr('%s', %s(%s))" % (
-        attr_name,
-        _init_converter_pat % (attr_name,),
-        value_var,
-    )
+    return f"_setattr('{attr_name}', {_init_converter_pat % (attr_name, )}({value_var}))"
 
 
 def _assign(attr_name, value, has_on_setattr):
@@ -2088,11 +2064,7 @@ def _assign_with_converter(attr_name, value_var, has_on_setattr):
     if has_on_setattr:
         return _setattr_with_converter(attr_name, value_var, True)
 
-    return "self.%s = %s(%s)" % (
-        attr_name,
-        _init_converter_pat % (attr_name,),
-        value_var,
-    )
+    return f"self.{attr_name} = {_init_converter_pat % (attr_name, )}({value_var})"
 
 
 def _attrs_to_init_script(
@@ -2146,18 +2118,14 @@ def _attrs_to_init_script(
                 return f"_inst_dict['{attr_name}'] = {value_var}"
 
             def fmt_setter_with_converter(
-                attr_name, value_var, has_on_setattr
-            ):
+                            attr_name, value_var, has_on_setattr
+                        ):
                 if has_on_setattr or _is_slot_attr(attr_name, base_attr_map):
                     return _setattr_with_converter(
                         attr_name, value_var, has_on_setattr
                     )
 
-                return "_inst_dict['%s'] = %s(%s)" % (
-                    attr_name,
-                    _init_converter_pat % (attr_name,),
-                    value_var,
-                )
+                return f"_inst_dict['{attr_name}'] = {_init_converter_pat % (attr_name, )}({value_var})"
 
     else:
         # Not frozen.
@@ -2186,11 +2154,7 @@ def _attrs_to_init_script(
         arg_name = a.alias
 
         has_factory = isinstance(a.default, Factory)
-        if has_factory and a.default.takes_self:
-            maybe_self = "self"
-        else:
-            maybe_self = ""
-
+        maybe_self = "self" if has_factory and a.default.takes_self else ""
         if a.init is False:
             if has_factory:
                 init_factory_name = _init_factory_pat % (a.name,)
@@ -2198,7 +2162,7 @@ def _attrs_to_init_script(
                     lines.append(
                         fmt_setter_with_converter(
                             attr_name,
-                            init_factory_name + f"({maybe_self})",
+                            f"{init_factory_name}({maybe_self})",
                             has_on_setattr,
                         )
                     )
@@ -2208,7 +2172,7 @@ def _attrs_to_init_script(
                     lines.append(
                         fmt_setter(
                             attr_name,
-                            init_factory_name + f"({maybe_self})",
+                            f"{init_factory_name}({maybe_self})",
                             has_on_setattr,
                         )
                     )
@@ -2269,27 +2233,29 @@ def _attrs_to_init_script(
                 )
                 lines.append("else:")
                 lines.append(
-                    "    "
-                    + fmt_setter_with_converter(
-                        attr_name,
-                        init_factory_name + "(" + maybe_self + ")",
-                        has_on_setattr,
+                    (
+                        "    "
+                        + fmt_setter_with_converter(
+                            attr_name,
+                            f"{init_factory_name}({maybe_self})",
+                            has_on_setattr,
+                        )
                     )
                 )
                 names_for_globals[
                     _init_converter_pat % (a.name,)
                 ] = a.converter
             else:
-                lines.append(
-                    "    " + fmt_setter(attr_name, arg_name, has_on_setattr)
-                )
+                lines.append(f"    {fmt_setter(attr_name, arg_name, has_on_setattr)}")
                 lines.append("else:")
                 lines.append(
-                    "    "
-                    + fmt_setter(
-                        attr_name,
-                        init_factory_name + "(" + maybe_self + ")",
-                        has_on_setattr,
+                    (
+                        "    "
+                        + fmt_setter(
+                            attr_name,
+                            f"{init_factory_name}({maybe_self})",
+                            has_on_setattr,
+                        )
                     )
                 )
             names_for_globals[init_factory_name] = a.default.factory
@@ -2324,8 +2290,8 @@ def _attrs_to_init_script(
         names_for_globals["_config"] = _config
         lines.append("if _config._run_validators is True:")
         for a in attrs_to_validate:
-            val_name = "__attr_validator_" + a.name
-            attr_name = "__attr_" + a.name
+            val_name = f"__attr_validator_{a.name}"
+            attr_name = f"__attr_{a.name}"
             lines.append(f"    {val_name}(self, {attr_name}, self.{a.name})")
             names_for_globals[val_name] = a.validator
             names_for_globals[attr_name] = a
@@ -2340,12 +2306,7 @@ def _attrs_to_init_script(
     # hash code would result in silent bugs.
     if cache_hash:
         if frozen:
-            if slots:
-                # if frozen and slots, then _setattr defined above
-                init_hash_cache = "_setattr('%s', %s)"
-            else:
-                # if frozen and not slots, then _inst_dict defined above
-                init_hash_cache = "_inst_dict['%s'] = %s"
+            init_hash_cache = "_setattr('%s', %s)" if slots else "_inst_dict['%s'] = %s"
         else:
             init_hash_cache = "self.%s = %s"
         lines.append(init_hash_cache % (_hash_cache_field, "None"))
@@ -2359,10 +2320,7 @@ def _attrs_to_init_script(
 
     args = ", ".join(args)
     if kw_only_args:
-        args += "%s*, %s" % (
-            ", " if args else "",  # leading comma
-            ", ".join(kw_only_args),  # kw_only args
-        )
+        args += f'{", " if args else ""}*, {", ".join(kw_only_args)}'
 
     return (
         "def %s(self, %s):\n    %s\n"

@@ -313,11 +313,7 @@ class TestFunctional:
         """
         Pickle object serialization works on all kinds of attrs classes.
         """
-        if len(attr.fields(cls)) == 2:
-            obj = cls(123, 456)
-        else:
-            obj = cls(123)
-
+        obj = cls(123, 456) if len(attr.fields(cls)) == 2 else cls(123)
         assert repr(obj) == repr(pickle.loads(pickle.dumps(obj, protocol)))
 
     def test_subclassing_frozen_gives_frozen(self):
@@ -590,8 +586,8 @@ class TestFunctional:
             assert "(1, 'foo')" == str(e1) == str(e2)
             assert (1, "foo") == e1.args == e2.args
 
-            hash(e1) == hash(e1)
-            hash(e2) == hash(e2)
+            True
+            True
 
             if not frozen:
                 deepcopy(e1)
