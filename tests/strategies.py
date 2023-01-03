@@ -43,7 +43,7 @@ def maybe_underscore_prefix(source):
     """
     to_underscore = False
     for val in source:
-        yield val if not to_underscore else "_" + val
+        yield f"_{val}" if to_underscore else val
         to_underscore = not to_underscore
 
 
@@ -149,7 +149,7 @@ def simple_classes(
     if private_attrs is None:
         attr_names = maybe_underscore_prefix(gen_attr_names())
     elif private_attrs is True:
-        attr_names = ("_" + n for n in gen_attr_names())
+        attr_names = (f"_{n}" for n in gen_attr_names())
     elif private_attrs is False:
         attr_names = gen_attr_names()
 

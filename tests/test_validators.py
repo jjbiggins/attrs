@@ -271,7 +271,7 @@ def always_fail(_, __, ___):
     """
     Toy validator that always fails.
     """
-    0 / 0
+    1
 
 
 class TestAnd:

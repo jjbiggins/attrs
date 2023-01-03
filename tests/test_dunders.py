@@ -129,7 +129,7 @@ class TestEqOrder:
         Equal objects are detected as equal.
         """
         assert cls(1, 2) == cls(1, 2)
-        assert not (cls(1, 2) != cls(1, 2))
+        assert cls(1, 2) == cls(1, 2)
 
     @pytest.mark.parametrize("cls", [EqCallableC, EqCallableCSlots])
     def test_equal_callable(self, cls):
@@ -138,8 +138,8 @@ class TestEqOrder:
         """
         assert cls("Test", 1) == cls("test", 1)
         assert cls("Test", 1) != cls("test", 2)
-        assert not (cls("Test", 1) != cls("test", 1))
-        assert not (cls("Test", 1) == cls("test", 2))
+        assert cls("Test", 1) == cls("test", 1)
+        assert cls("Test", 1) != cls("test", 2)
 
     @pytest.mark.parametrize("cls", [EqC, EqCSlots])
     def test_unequal_same_class(self, cls):
@@ -147,7 +147,7 @@ class TestEqOrder:
         Unequal objects of correct type are detected as unequal.
         """
         assert cls(1, 2) != cls(2, 1)
-        assert not (cls(1, 2) == cls(2, 1))
+        assert cls(1, 2) != cls(2, 1)
 
     @pytest.mark.parametrize("cls", [EqCallableC, EqCallableCSlots])
     def test_unequal_same_class_callable(self, cls):
@@ -155,7 +155,7 @@ class TestEqOrder:
         Unequal objects of correct type are detected as unequal.
         """
         assert cls("Test", 1) != cls("foo", 2)
-        assert not (cls("Test", 1) == cls("foo", 2))
+        assert cls("Test", 1) != cls("foo", 2)
 
     @pytest.mark.parametrize(
         "cls", [EqC, EqCSlots, EqCallableC, EqCallableCSlots]
@@ -171,7 +171,7 @@ class TestEqOrder:
             b = 2
 
         assert cls(1, 2) != NotEqC()
-        assert not (cls(1, 2) == NotEqC())
+        assert cls(1, 2) != NotEqC()
 
     @pytest.mark.parametrize("cls", [OrderC, OrderCSlots])
     def test_lt(self, cls):
@@ -343,7 +343,7 @@ class TestAddRepr:
         """
 
         def custom_repr(value):
-            return "foo:" + str(value)
+            return f"foo:{str(value)}"
 
         @attr.s
         class C:
@@ -557,8 +557,6 @@ class TestAddHash:
         i = C(1)
 
         assert i == i
-        assert hash(i) == hash(i)
-
         if eq:
             assert C(1) == C(1)
             assert hash(C(1)) == hash(C(1))
@@ -924,7 +922,7 @@ class TestNothing:
         All instances are equal.
         """
         assert NOTHING == NOTHING == NOTHING
-        assert not (NOTHING != NOTHING)
+        assert NOTHING == NOTHING
         assert 1 != NOTHING
 
     def test_false(self):

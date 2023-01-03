@@ -104,11 +104,10 @@ def find_meta(meta):
     """
     Extract __*meta*__ from META_FILE.
     """
-    meta_match = re.search(
+    if meta_match := re.search(
         rf"^__{meta}__ = ['\"]([^'\"]*)['\"]", META_FILE, re.M
-    )
-    if meta_match:
-        return meta_match.group(1)
+    ):
+        return meta_match[1]
     raise RuntimeError(f"Unable to find __{meta}__ string.")
 
 

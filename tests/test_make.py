@@ -541,8 +541,8 @@ class TestAttributes:
             "order": True,
             "hash": True,
             "init": True,
+            arg_name: False,
         }
-        am_args[arg_name] = False
         if arg_name == "eq":
             am_args["order"] = False
 
@@ -610,7 +610,7 @@ class TestAttributes:
                 pass
 
         assert C.D.__name__ == "D"
-        assert C.D.__qualname__ == C.__qualname__ + ".D"
+        assert C.D.__qualname__ == f"{C.__qualname__}.D"
 
     @pytest.mark.parametrize("with_validation", [True, False])
     def test_pre_init(self, with_validation, monkeypatch):
@@ -619,10 +619,13 @@ class TestAttributes:
         """
         monkeypatch.setattr(_config, "_run_validators", with_validation)
 
+
+
         @attr.s
         class C:
-            def __attrs_pre_init__(self2):
-                self2.z = 30
+            def __attrs_pre_init__(self):
+                self.z = 30
+
 
         c = C()
 
@@ -635,13 +638,16 @@ class TestAttributes:
         """
         monkeypatch.setattr(_config, "_run_validators", with_validation)
 
+
+
         @attr.s
         class C:
             x = attr.ib()
             y = attr.ib()
 
-            def __attrs_post_init__(self2):
-                self2.z = self2.x + self2.y
+            def __attrs_post_init__(self):
+                self.z = self.x + self.y
+
 
         c = C(x=10, y=20)
 
@@ -654,15 +660,18 @@ class TestAttributes:
         """
         monkeypatch.setattr(_config, "_run_validators", with_validation)
 
+
+
         @attr.s
         class C:
             x = attr.ib()
 
-            def __attrs_pre_init__(self2):
-                self2.z = 30
+            def __attrs_pre_init__(self):
+                self.z = 30
 
-            def __attrs_post_init__(self2):
-                self2.z += self2.x
+            def __attrs_post_init__(self):
+                self.z += self.x
+
 
         c = C(x=10)
 
@@ -917,6 +926,8 @@ class TestKeywordOnlyAttributes:
         in `__init__`
         """
 
+
+
         @attr.s
         class KwArgBeforeInitFalse:
             kwarg = attr.ib(kw_only=True)
@@ -927,7 +938,8 @@ class TestKeywordOnlyAttributes:
 
             @non_init_function_default.default
             def _init_to_init(self):
-                return self.kwarg + "b"
+                return f"{self.kwarg}b"
+
 
         c = KwArgBeforeInitFalse(kwarg="a")
 
@@ -949,6 +961,8 @@ class TestKeywordOnlyAttributes:
         class KwArgBeforeInitFalseParent:
             kwarg = attr.ib(kw_only=True)
 
+
+
         @attr.s
         class KwArgBeforeInitFalseChild(KwArgBeforeInitFalseParent):
             non_init_function_default = attr.ib(init=False)
@@ -958,7 +972,8 @@ class TestKeywordOnlyAttributes:
 
             @non_init_function_default.default
             def _init_to_init(self):
-                return self.kwarg + "b"
+                return f"{self.kwarg}b"
+
 
         c = KwArgBeforeInitFalseChild(kwarg="a")
 
@@ -1166,7 +1181,7 @@ class TestFieldsDict:
 
         assert isinstance(d, dict)
         assert list(fields(C)) == list(d.values())
-        assert [a.name for a in fields(C)] == [field_name for field_name in d]
+        assert [a.name for a in fields(C)] == list(d)
 
 
 class TestConverter:
@@ -1595,7 +1610,7 @@ class TestClassBuilder:
         # This is assertion that would fail if a single __ne__ instance
         # was reused across multiple _make_eq calls.
         organic_prefix = C.organic.__qualname__.rsplit(".", 1)[0]
-        assert organic_prefix + "." + meth_name == meth_C.__qualname__
+        assert f"{organic_prefix}.{meth_name}" == meth_C.__qualname__
 
     def test_handles_missing_meta_on_class(self):
         """
@@ -1668,13 +1683,13 @@ class TestClassBuilder:
 
         assert [C2] == C.__subclasses__()
 
-    def _get_copy_kwargs(include_slots=True):
+    def _get_copy_kwargs(self):
         """
         Generate a list of compatible attr.s arguments for the `copy` tests.
         """
         options = ["frozen", "hash", "cache_hash"]
 
-        if include_slots:
+        if self:
             options.extend(["slots", "weakref_slot"])
 
         out_kwargs = []
@@ -2170,7 +2185,7 @@ class TestAutoDetect:
             __tracebackhide__ = True
 
             for m in ("le", "lt", "ge", "gt"):
-                assert_not_set(cls, ex, "__" + m + "__")
+                assert_not_set(cls, ex, f"__{m}__")
 
         @attr.s(auto_detect=True, slots=slots, frozen=frozen)
         class LE:

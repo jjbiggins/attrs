@@ -162,9 +162,7 @@ class TestAsDictHook:
         """
 
         def hook(inst, a, v):
-            if isinstance(v, datetime):
-                return v.isoformat()
-            return v
+            return v.isoformat() if isinstance(v, datetime) else v
 
         @attr.dataclass
         class Child:

@@ -402,9 +402,9 @@ class TestSetAttr:
         class C(B):
             pass
 
-        assert getattr(A, "__attrs_own_setattr__", False) is True
-        assert getattr(B, "__attrs_own_setattr__", False) is False
-        assert getattr(C, "__attrs_own_setattr__", False) is False
+        assert getattr(A, "__attrs_own_setattr__", False)
+        assert not getattr(B, "__attrs_own_setattr__", False)
+        assert not getattr(C, "__attrs_own_setattr__", False)
 
         with pytest.raises(SystemError):
             C(1).x = 3

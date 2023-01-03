@@ -125,10 +125,7 @@ def _make_operator(name, func):
             return NotImplemented
 
         result = func(self.value, other.value)
-        if result is NotImplemented:
-            return NotImplemented
-
-        return result
+        return NotImplemented if result is NotImplemented else result
 
     method.__name__ = f"__{name}__"
     method.__doc__ = (
@@ -142,10 +139,7 @@ def _is_comparable_to(self, other):
     """
     Check whether `other` is comparable to `self`.
     """
-    for func in self._requirements:
-        if not func(self, other):
-            return False
-    return True
+    return all(func(self, other) for func in self._requirements)
 
 
 def _check_same_type(self, other):
